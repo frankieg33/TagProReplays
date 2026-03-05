@@ -96,7 +96,7 @@ function imageToDataURI(img) {
 // canvas contamination.
 function getDefaultTextures() {
   return loadImage(texture_names.map((name) => {
-    return chrome.extension.getURL(`images/${name}.png`);
+    return chrome.runtime.getURL(`images/${name}.png`);
   })).then((images) => {
     var out = {};
     for (let i = 0; i < images.length; i++) {

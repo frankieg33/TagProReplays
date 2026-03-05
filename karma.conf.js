@@ -1,9 +1,3 @@
-/*eslint no-sync: "off" */
-/* global __dirname: false */
-var path = require('path');
-
-var basePath = path.resolve(path.join(__dirname, './src/js'));
-
 module.exports = function (config) {
   var props = {
     // base path that will be used to resolve all patterns (eg. files, exclude)
@@ -11,12 +5,12 @@ module.exports = function (config) {
 
     // frameworks to use
     // available frameworks: https://npmjs.org/browse/keyword/karma-adapter
-    frameworks: ['mocha', 'chai', 'browserify', 'source-map-support'],
+    frameworks: ['mocha', 'chai', 'source-map-support'],
 
     // list of files / patterns to load in the browser
     files: [
       // To include test/karma
-      'test/**/*.spec.js',
+      '.tmp-tests/**/*.spec.js',
       {pattern: 'src/images/**/*.png', watched: true, served: true, included: false},
       {pattern: 'src/schemas/**/*.json', watched: true, served: true, included: false},
       {pattern: 'test/fixtures/**/*', watched: true, served: true, included: false}
@@ -35,9 +29,7 @@ module.exports = function (config) {
 
     // preprocess matching files before serving them to the browser
     // available preprocessors: https://npmjs.org/browse/keyword/karma-preprocessor
-    preprocessors: {
-      'test/**/*.spec.js': ['browserify']
-    },
+    preprocessors: {},
 
     // test results reporter to use
     // possible values: 'dots', 'progress'
@@ -93,9 +85,6 @@ module.exports = function (config) {
     }
   };
 
-  props.browserify = {};
-  props.browserify.debug = true;
-  props.browserify.paths = [basePath];
   if (process.env.CI) {
     props.browsers = ['Chrome_ci'];
   }

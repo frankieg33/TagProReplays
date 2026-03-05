@@ -146,7 +146,7 @@ class Table {
   update() {
     $('.replayRow').not('.clone').remove();
     this.collection.fetch().then((data) => {
-      logger.info(`Received ${data.length} replays.`);
+      logger.info(`Received ${data.length} highlights.`);
       data.each((replay) => {
         this._add_replay(replay);
       });
@@ -329,7 +329,8 @@ class Table {
   }
 
   _update_ui() {
-    $('.replay-count').text(`Total replays: ${this.collection.total()}`);
+    $('.replay-count').text(`Total highlights: ${this.collection.total()}`);
+    let force_render_disabled = $('#renderSelectedButton').data('force-disabled') === true;
     if (this.empty()) {
       // Show "No replays" message.
       this.inSearch ? $('#tpr-no-search-results').show() : $('#noReplays').show();
@@ -346,7 +347,7 @@ class Table {
       // Display list of replays.
       $('#replayList').show();
       // Enable buttons for interacting with multiple selections.
-      $('#renderSelectedButton').prop('disabled', false);
+      $('#renderSelectedButton').prop('disabled', force_render_disabled);
       $('#deleteSelectedButton').prop('disabled', false);
       $('#downloadRawButton').prop('disabled', false);
       $('#selectAllCheckbox').prop('disabled', false);

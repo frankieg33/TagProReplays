@@ -929,8 +929,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     .catch((err) => {
       logger.error('Error saving replay: ', err);
       // Save replay so it can be sent by user.
+      let fallback_downloaded = false;
       let blob = new Blob([data], { type: 'application/json' });
-      saveAs(blob, `${name}.txt`);
+      try {
+        saveAs(blob, `${name}.txt`);
+        fallback_downloaded = true;
+      } catch (downloadErr) {
+        logger.error('Could not export failed replay payload: ', downloadErr);
+      }
       track("Recorded Replay", {
         Failed: true,
         Reason: err.message,
@@ -939,7 +945,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         Event: event_name || 'None'
       });
       sendResponse({
-        failed: true
+        failed: true,
+        reason: err && err.message ? err.message : 'Failed to save highlight.',
+        name: err && err.name ? err.name : 'Error',
+        fallback_downloaded: fallback_downloaded
       });
     });
     return true;
@@ -1067,10 +1076,18 @@ function* frame_source(renderer) {
   let frames = replay.clock.length;
   let end = frames - 1;
   let frame = 0;
+  let nominal = 1000 / fps;
   let frame_time = Date.parse(replay.clock[frame]);
+  function normalize_frame_duration(rawDuration) {
+    if (!Number.isFinite(rawDuration) || rawDuration <= 0) {
+      return Math.max(1, Math.round(nominal));
+    }
+    let steps = Math.max(1, Math.round(rawDuration / nominal));
+    return Math.max(1, Math.round(steps * nominal));
+  }
   while (frame < end) {
     let next_frame_time = Date.parse(replay.clock[frame + 1]);
-    let frame_duration = next_frame_time - frame_time;
+    let frame_duration = normalize_frame_duration(next_frame_time - frame_time);
     renderer.draw(frame);
     yield renderer.toBlob('image/webp', 0.8)
     .then((blob) => ({frame: blob, duration: frame_duration}));
@@ -1079,7 +1096,7 @@ function* frame_source(renderer) {
   }
   renderer.draw(frame);
   yield renderer.toBlob('image/webp', 0.8)
-  .then((blob) => ({frame: blob, duration: 1000 / fps}));
+  .then((blob) => ({frame: blob, duration: Math.round(nominal)}));
 }
 
 /**

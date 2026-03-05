@@ -14,6 +14,10 @@ const {Sandbox} = require('util/messaging');
 
 // Whether we're on a page that disallows 'unsafe-eval'
 function isRestricted() {
+  // Service workers have no DOM; sandbox iframe path is not available.
+  if (typeof document === 'undefined') {
+    return false;
+  }
   try {
     let fn = new Function('return false');
     return fn();

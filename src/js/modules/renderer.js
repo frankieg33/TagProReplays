@@ -72,6 +72,59 @@ var frame;
 var context, options, replay_data, render_state;
 
 const TILE_SIZE = 40;
+const FLOOR_TILE_KEYS = Object.keys(Tiles.floor_tiles)
+  .map(Number)
+  .filter(Number.isFinite);
+
+function set_pixel_perfect_context(ctx) {
+  ctx.imageSmoothingEnabled = false;
+  if ('mozImageSmoothingEnabled' in ctx) {
+    ctx.mozImageSmoothingEnabled = false;
+  }
+  if ('webkitImageSmoothingEnabled' in ctx) {
+    ctx.webkitImageSmoothingEnabled = false;
+  }
+  if ('msImageSmoothingEnabled' in ctx) {
+    ctx.msImageSmoothingEnabled = false;
+  }
+}
+
+function resolve_floor_tile_spec(tile_value) {
+  let spec = Tiles.floor_tiles[tile_value];
+  if (spec) return spec;
+  let numeric = Number(tile_value);
+  if (!Number.isFinite(numeric)) return null;
+
+  let normalized_candidates = [
+    Number(numeric.toFixed(3)),
+    Number(numeric.toFixed(2)),
+    Number(numeric.toFixed(1)),
+    Math.floor(numeric),
+    Math.ceil(numeric)
+  ];
+  for (let candidate of normalized_candidates) {
+    spec = Tiles.floor_tiles[candidate];
+    if (spec) return spec;
+  }
+
+  // Handle tiny floating-point drift (e.g. 10.106 should map to 10.11).
+  let int_part = Math.floor(numeric);
+  let nearest = null;
+  let nearest_diff = Infinity;
+  for (let candidate of FLOOR_TILE_KEYS) {
+    if (Math.floor(candidate) !== int_part) continue;
+    let diff = Math.abs(candidate - numeric);
+    if (diff < nearest_diff) {
+      nearest = candidate;
+      nearest_diff = diff;
+    }
+  }
+  if (nearest !== null && nearest_diff <= 0.02) {
+    return Tiles.floor_tiles[nearest];
+  }
+
+  return null;
+}
 
 /**
  * Interface for replay rendering, in general transforming replay
@@ -100,6 +153,7 @@ class Renderer {
   constructor(canvas, replay, these_options = {}) {
     // Set globals.
     context = canvas.getContext('2d');
+    set_pixel_perfect_context(context);
     options = these_options;
     render_state = {
       splats: {},
@@ -630,6 +684,7 @@ function drawMap(positions) {
   newcan.style.top = 0;
   newcan.style.left = 0;
   let newcontext = newcan.getContext('2d');
+  set_pixel_perfect_context(newcontext);
 
   var specialTiles = ['11', '12', '17', '18', '23'];
   var specialTileElements = {
@@ -767,7 +822,7 @@ function drawFloorTiles(positions, showPreviews) {
   for (let floor_tile of positions.floorTiles) {
     let x, y;
     const tile_value = floor_tile.value[frame];
-    const tile_spec = Tiles.floor_tiles[tile_value];
+    const tile_spec = resolve_floor_tile_spec(tile_value);
     if (!tile_spec) {
       render_state.report_missing_tile(tile_value, "Tiles.floor_values");
       continue;
@@ -797,7 +852,7 @@ function drawFloorTiles(positions, showPreviews) {
       x * TILE_SIZE,
       y * TILE_SIZE,
       TILE_SIZE, TILE_SIZE,
-      pos.x, pos.y,
+      Math.round(pos.x), Math.round(pos.y),
       TILE_SIZE, TILE_SIZE);
     context.globalAlpha = 1;
   }
@@ -1016,7 +1071,7 @@ function drawSpawns(positions) {
         context.drawImage(textures.tiles,
           (spawn.t == 1 ? 14 : 15) * TILE_SIZE, 0,
           40, 40,
-          pos.x, pos.y,
+          Math.round(pos.x), Math.round(pos.y),
           40, 40);
       }
     }
@@ -1155,7 +1210,7 @@ function drawObjects(positions) {
         0, 0,
         texture.width, texture.height,
         // Offset
-        pos.x - 8, pos.y - 8,
+        Math.round(pos.x - 8), Math.round(pos.y - 8),
         ball_size, ball_size);
     } else if (obj.type == 'marsball') {
       if (!obj.draw[frame]) continue;
@@ -1165,7 +1220,7 @@ function drawObjects(positions) {
       context.drawImage(textures.tiles,
         descriptor.x * TILE_SIZE, descriptor.y * TILE_SIZE,
         descriptor.size, descriptor.size,
-        pos.x, pos.y,
+        Math.round(pos.x), Math.round(pos.y),
         descriptor.size, descriptor.size);
     } else {
       continue;
@@ -1216,7 +1271,7 @@ function animateReplay(frame_n, positions, mapImg, spin, showSplats, showClockAn
   context.drawImage(mapImg,
     0, 0,
     mapImg.width, mapImg.height,
-    origin.x, origin.y,
+    Math.round(origin.x), Math.round(origin.y),
     mapImg.width, mapImg.height);
   if (showSplats) {
     drawSplats(positions);

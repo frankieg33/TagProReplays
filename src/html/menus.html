@@ -4,14 +4,14 @@
     <div class="modal-content">
       <div class="modal-header">
         <button type="button" class="close" data-dismiss="modal">&times;</button>
-        <h4 class="modal-title">TagPro Replays</h4>
+        <h4 class="modal-title">TagPro Highlights</h4>
       </div>
       <div class="modal-body">
         <div class="dialog-header">
           <div class="container-fluid">
             <div class="row">
               <div id="tpr-title-div" class="col-sm-10">
-                <h3>Available Replays</h3>
+                <h3>Available Highlights</h3>
               </div>
               <div id="tpr-search-div" class="col-sm-11">
                 <input id="tpr-search-input" class="form-control" type="search" placeholder="Search">
@@ -40,7 +40,7 @@
                 <th class="col-sm-1" id="renderedHeader">Rendered</th>
                 <th class="col-sm-1" id="durationHeader">Duration</th>
                 <th class="col-sm-2" id="dateHeader">Date</th>
-                <th class="col-sm-1">Movie</th>
+                <th class="col-sm-1" id="movieHeader">Movie</th>
                 <th class="col-sm-1"></th>
               </tr>
             </thead>
@@ -55,10 +55,10 @@
             </div>
           </div>
           <div id="noReplays" class="text-center">
-            <p>You don't have any replays saved. Go record some!</p>
+            <p>You don't have any highlights saved. Go clip some!</p>
           </div>
           <div id="tpr-no-search-results" class="text-center">
-            <p>No replays matched your search. Try using a different search query.</p>
+            <p>No highlights matched your search. Try using a different search query.</p>
           </div>
           <div id="replayList">
             <table class="table table-condensed">
@@ -98,7 +98,7 @@
         <div class="pull-left">
           <button type="button" class="btn btn-danger" id="deleteSelectedButton">Delete Selected</button>
           <button type="button" class="btn btn-primary" id="renderSelectedButton">Render Selected</button>
-          <button type="button" class="btn btn-primary" id="downloadRawButton">Download Raw Data</button>
+          <button type="button" class="btn btn-primary" id="downloadRawButton">Download Highlight Data</button>
           <button type="button" class="btn btn-default" id="raw-upload-button">Import...</button>
         </div>
         <div class="pull-right">
@@ -116,9 +116,9 @@
         Import error
       </div>
       <div class="modal-body">
-        Your replay (<span class="filename"></span>) had a problem:
+        Your highlight file (<span class="filename"></span>) had a problem:
         <span class="reason"></span>
-        If you believe this was in error then upload your replay to <a href="http://dropcanvas.com">dropcanvas</a> and make an issue <a href="https://github.com/chrahunt/TagProReplays/issues">here</a> with the link and message above.
+        If you believe this was in error then upload your highlight data to <a href="http://dropcanvas.com">dropcanvas</a> and make an issue <a href="https://github.com/chrahunt/TagProReplays/issues">here</a> with the link and message above.
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
@@ -147,7 +147,7 @@
     <div class="modal-content">
       <div class="modal-header">
         <button type="button" class="close" data-dismiss="modal">&times;</button>
-        <h4 class="modal-title" id="settings-title">TagPro Replays</h4>
+        <h4 class="modal-title" id="settings-title">TagPro Highlights</h4>
       </div>
       <div class="modal-body">
         <h3>Settings</h3>
@@ -244,7 +244,7 @@
     <div class="modal-content">
       <div class="modal-header">
         <button type="button" class="close" data-dismiss="modal">&times;</button>
-        <h4 class="modal-title">TagPro Replays</h4>
+        <h4 class="modal-title">TagPro Highlights</h4>
       </div>
       <div class="modal-body">
         <h3>Select Texture Files</h3>
@@ -322,12 +322,12 @@
               <!--<div class="tpr-button tpr-button-stop"><span class="glyphicon glyphicon-stop"></span></div>-->
               <div class="tpr-button tpr-button-crop-start" data-toggle="tooltip" data-placement="bottom" title="Set trim start."><span class="glyphicon glyphicon-chevron-right"></span></div>
               <div class="tpr-button tpr-button-crop-end" data-toggle="tooltip" data-placement="bottom" title="Set trim end."><span class="glyphicon glyphicon-chevron-left"></span></div>
-              <div class="tpr-button tpr-button-crop-play" data-toggle="tooltip" data-placement="bottom" title="Preview trimmed replay."><span class="glyphicon glyphicon-eye-open"></span></div>
-              <div class="tpr-button tpr-button-rename" data-toggle="tooltip" data-placement="bottom" title="Rename this replay."><span class="glyphicon glyphicon-pencil"></span></div>
-              <div class="tpr-button tpr-button-delete" data-toggle="tooltip" data-placement="bottom" title="Delete this replay."><span class="glyphicon glyphicon-trash"></span></div>
-              <!--<div class="tpr-button tpr-button-record" data-toggle="tooltip" data-placement="bottom" title="Start recording the replay."><span class="glyphicon glyphicon-record"></span></div>-->
-              <div class="tpr-option tpr-button-crop" data-toggle="tooltip" data-placement="bottom" title="Trim and save as a new replay.">Save As</div>
-              <div class="tpr-option tpr-button-crop-replace" data-toggle="tooltip" data-placement="bottom" title="Trim and replace this replay.">Save</div>
+              <div class="tpr-button tpr-button-crop-play" data-toggle="tooltip" data-placement="bottom" title="Preview trimmed highlight."><span class="glyphicon glyphicon-eye-open"></span></div>
+              <div class="tpr-button tpr-button-rename" data-toggle="tooltip" data-placement="bottom" title="Rename this highlight."><span class="glyphicon glyphicon-pencil"></span></div>
+              <div class="tpr-button tpr-button-delete" data-toggle="tooltip" data-placement="bottom" title="Delete this highlight."><span class="glyphicon glyphicon-trash"></span></div>
+              <!--<div class="tpr-button tpr-button-record" data-toggle="tooltip" data-placement="bottom" title="Start recording the highlight."><span class="glyphicon glyphicon-record"></span></div>-->
+              <div class="tpr-option tpr-button-crop" data-toggle="tooltip" data-placement="bottom" title="Trim and save as a new highlight.">Save As</div>
+              <div class="tpr-option tpr-button-crop-replace" data-toggle="tooltip" data-placement="bottom" title="Trim and replace this highlight.">Save</div>
               <!--<div class="tpr-option tpr-button-render" data-toggle="tooltip" data-placement="bottom" title="Renders the current replay.">Render</div>-->
             </div>
           </div>

@@ -1,5 +1,5 @@
 const EventEmitter = require('events');
-const ProgressBar = require('progressbar.js');
+const ProgressBar = require('progressbar.js/src/main');
 
 /**
  * Activity dialog.

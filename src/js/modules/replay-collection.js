@@ -64,7 +64,7 @@ class ReplayCollection extends EventEmitter {
         if (chrome.runtime.lastError) {
           reject(chrome.runtime.lastError);
         } else if (result.error) {
-          reject(new Error(result.message));
+          reject(new Error(result.reason || result.message || 'Unknown replay list error'));
         } else {
           this._collection = result.replays.map(
             info => new Replay(info.id, info));
@@ -319,12 +319,17 @@ class Replay {
   render() {
     return new Progress((resolve, reject, progress) => {
       let port = chrome.runtime.connect({ name: 'replay.render' });
+      let sawError = false;
+      let gotDone = false;
       port.postMessage({ id: this.id });
       // See background page for protocol.
       port.onMessage.addListener((msg) => {
         if (msg.error) {
+          sawError = true;
           let err = deserialize_error(msg.error);
           reject(err);
+        } else if (msg.done) {
+          gotDone = true;
         } else {
           progress(msg.progress);
         }
@@ -332,8 +337,19 @@ class Replay {
 
       // Finished.
       port.onDisconnect.addListener(() => {
-        // If this was due to an error we would have already rejected,
-        // and this would do nothing.
+        if (sawError) return;
+        if (chrome.runtime.lastError) {
+          let err = new Error(`Render connection failed: ${chrome.runtime.lastError.message}`);
+          err.name = 'PortDisconnectError';
+          reject(err);
+          return;
+        }
+        if (!gotDone) {
+          let err = new Error('Render disconnected before completion.');
+          err.name = 'PortDisconnectError';
+          reject(err);
+          return;
+        }
         resolve();
       });
     });
@@ -407,22 +423,37 @@ class ReplaySelection {
   download() {
     return new Progress((resolve, reject, progress) => {
       let port = chrome.runtime.connect({ name: 'replay.download' });
+      let sawError = false;
+      let gotCompletionSignal = false;
       port.postMessage({ ids: this._ids });
       // See background page for protocol.
       port.onMessage.addListener((msg) => {
         if (msg.error) {
+          sawError = true;
           let err = new Error(msg.error.message);
           err.name = msg.error.name;
           reject(err);
         } else {
+          gotCompletionSignal = true;
           progress(msg.progress);
         }
       });
 
       // Finished.
       port.onDisconnect.addListener(() => {
-        // If this was due to an error we would have already rejected,
-        // and this would do nothing.
+        if (sawError) return;
+        if (chrome.runtime.lastError) {
+          let err = new Error(`Replay export connection failed: ${chrome.runtime.lastError.message}`);
+          err.name = 'PortDisconnectError';
+          reject(err);
+          return;
+        }
+        if (!gotCompletionSignal) {
+          let err = new Error('Replay export disconnected before any progress was reported.');
+          err.name = 'PortDisconnectError';
+          reject(err);
+          return;
+        }
         resolve();
       });
     });
@@ -481,5 +512,5 @@ function deserialize_error(err) {
   if (err.name) {
     error.name = err.name;
   }
-  return err;
+  return error;
 }

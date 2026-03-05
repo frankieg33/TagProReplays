@@ -42,11 +42,11 @@ moment.updateLocale('en', {
 // Inserts Replay button in main page
 function createReplayPageButton() {
   if ($('#userscript-home').length) {
-    $('#play-now').after('<a class="btn" id="ReplayMenuButton">Replays');
-    $('#ReplayMenuButton').append('<span class="sub-text">watch yourself');
+    $('#play-now').after('<a class="btn" id="ReplayMenuButton">Highlights');
+    $('#ReplayMenuButton').append('<span class="sub-text">clip moments');
   } else {
-    $('div.buttons > a[href="/boards"]').after('<a class="button" id="ReplayMenuButton">Replays');
-    $('#ReplayMenuButton').append('<span>watch yourself');
+    $('div.buttons > a[href="/boards"]').after('<a class="button" id="ReplayMenuButton">Highlights');
+    $('#ReplayMenuButton').append('<span>clip moments');
   }
 
   $('#ReplayMenuButton').click(function () {
@@ -113,14 +113,14 @@ function injectMenu() {
 
     // Retrieve html of all items
     $('#tpr-container').load(
-      chrome.extension.getURL("html/menus.html"), resolve);
+      chrome.runtime.getURL("html/menus.html"), resolve);
   });
 }
 
 // Initialize settings and texture picker.
 function initSettings() {
   // Settings container.
-  $('#settings-title').text('TagPro Replays v' + chrome.runtime.getManifest().version);
+  $('#settings-title').text('TagPro Highlights v' + chrome.runtime.getManifest().version);
   setFormTitles();
   let settings = [{
     name: 'fps',
@@ -335,7 +335,7 @@ let replay_table = new Table({
     // Set playback link text
     $row.find('a.playback-link').text(replay.name);
     if (replay.rendered) {
-      $row.find('.rendered-check').text('✓');
+      $row.find('.rendered-check').text('\u2713');
       $row.find('.download-movie-button').prop('disabled', false);
     } else {
       $row.find('.rendered-check').text('');
@@ -397,48 +397,47 @@ function initMenu() {
   });
 
   replay_table.add_collection_action('#renderSelectedButton', (replays) => {
-    if (!confirm('Are you sure you want to render these replays?'
-      + ' The extension will be unavailable until the movies'
-      + ' are rendered.')) {
-      return;
+    let alreadyRendered = replays.filter((replay) => replay.rendered);
+    let message = 'Are you sure you want to render these highlights?'
+      + ' The extension will be unavailable until the movies are rendered.';
+    if (alreadyRendered.length) {
+      message += `\n\n${alreadyRendered.length} selected highlight(s) are already rendered and will be overwritten with current render settings.`;
     }
-    let unrendered = replays.filter((replay) => {
-      return !replay.rendered;
-    });
-    if (!unrendered.length) {
-      alert('You must select at least one unrendered replay.');
+    if (!confirm(message)) {
       return;
     }
     // Update UI.
-    unrendered.each((replay) => {
+    replays.each((replay) => {
       let $row = replay_table.get_row(replay.id);
       $row.find('.rendered-check').text('Queued');
     });
-    // Render replays in sequence.
+    // Render highlights in sequence.
     render_loop(0);
     function render_loop(index) {
-      if (index === unrendered.length) {
-        logger.info('Rendering completed for all replays.');
+      if (index === replays.length) {
+        logger.info('Rendering completed for all highlights.');
         return;
       }
-      let replay = unrendered.get(index);
+      let replay = replays.get(index);
       let $row = replay_table.get_row(replay.id);
       $row.find('.rendered-check').html('<progress class="progressbar">');
       replay.render().progress((progress) => {
         let progress_bar = $row.find('.progressbar')[0];
         progress_bar.value = progress;
       }).catch((err) => {
-        if (err.name == 'AlreadyRendering') {
-          alert(`Error rendering replays: ${err.message}`);
+        let errorMessage = err && err.message ? err.message : 'Unknown render error';
+        if (err.name == 'AlreadyRendering' || err.name == 'RenderingDisabled') {
+          alert(`Error rendering highlights: ${errorMessage}`);
           // Replay render status on all selected replays.
-          for (let i = index; i < unrendered.length; i++) {
-            let $row = replay_table.get_row(unrendered.get(i).id);
+          for (let i = index; i < replays.length; i++) {
+            let $row = replay_table.get_row(replays.get(i).id);
             $row.find('.rendered-check').html('<span style="color:red">ERROR');
           }
           // Re-throw to abort the rest of the renders.
           throw err;
         } else {
           // Only error for the single replay.
+          alert(`Failed to render highlight "${replay.name}".\nReason: ${errorMessage}`);
           $row.find('.rendered-check').html('<span style="color:red">ERROR');
         }
       }).then(() => {
@@ -448,7 +447,7 @@ function initMenu() {
   });
 
   replay_table.add_collection_action('#deleteSelectedButton', (replays) => {
-    if (confirm('Are you sure you want to delete these replays? This cannot be undone.')) {
+    if (confirm('Are you sure you want to delete these highlights? This cannot be undone.')) {
       logger.info(`Requesting deletion of: ${replays.ids}`);
       replays.delete().catch((err) => {
         logger.error('Error deleting replays: ', err);
@@ -467,7 +466,7 @@ function initMenu() {
     logger.info(`Requesting download for: ${replays.ids}`);
     if (replays.length === 1) {
       replays.get(0).download().catch((err) => {
-        alert(`Error downloading replay: ${err.message}`);
+        alert(`Error downloading highlight: ${err.message}`);
       });
       return;
     }
@@ -476,7 +475,7 @@ function initMenu() {
       dismissable: false,
       progress: true
     });
-    activity_dialog.header('Replay Export');
+    activity_dialog.header('Highlight Export');
     activity_dialog.text('Preparing download');
     activity_dialog.progress(0);
     activity_dialog.show();
@@ -511,9 +510,12 @@ function initMenu() {
     replays.download().progress((progress) => {
       update_dialog(progress);
     }).then(() => {
-      activity_dialog.text('Replays exported.');
+      activity_dialog.text('Highlights exported.');
     }).catch((err) => {
-      activity_dialog.text(`Replay export failed, reason: ${err.message}`);
+      let errName = err && err.name ? err.name : 'Error';
+      let errMessage = err && err.message ? err.message : 'Unknown failure';
+      activity_dialog.text(`Highlight export failed (${errName}): ${errMessage}`);
+      logger.error('Highlight export failed: ', err);
     }).then(() => {
       activity_dialog.update({
         dismissable: true
@@ -532,7 +534,7 @@ function initMenu() {
     replay.download_movie().then(() => {
       logger.debug('Movie download completed.');
     }).catch((err) => {
-      alert(`Download failed. Most likely you haven't rendered that movie yet.\nReason: ${err.message}`);
+      alert(`Movie download failed.\nReason: ${err.message}`);
     });
   });
 
@@ -543,7 +545,7 @@ function initMenu() {
     if (new_name === null) return;
     replay.rename(new_name).catch((err) => {
       logger.error('Error renaming replay: ', err);
-      alert(`Replay renaming failed: ${err.message}`);
+      alert(`Highlight renaming failed: ${err.message}`);
     });
   });
 
@@ -653,18 +655,18 @@ function initMenu() {
 // Function to set UI titles.
 function setFormTitles() {
   let fpsTitle = 'Use this to set how many times per second data are recorded from the tagpro game.\n' +
-    'Higher fps will create smoother replays.\n\nIf you experience framerate drops during gameplay,' +
-    ' or if your replays are sped up, try reducing this value.';
+    'Higher fps will create smoother highlights.\n\nIf you experience framerate drops during gameplay,' +
+    ' or if your highlights are sped up, try reducing this value.';
   $('#fpsTxt').prop('title', fpsTitle);
   $('#fpsInput').prop('title', fpsTitle);
 
-  let durationTitle = 'Use this to set how long the replay will be in seconds. Values greater than 60' +
+  let durationTitle = 'Use this to set how long each highlight will be in seconds. Values greater than 60' +
     ' seconds are not recommended.\n\nThis setting will apply to future recordings. It will not affect' +
-    ' replays that have already been recorded';
+    ' highlights that have already been recorded';
   $('#durationText').prop('title', durationTitle);
   $('#durationInput').prop('title', durationTitle);
 
-  let recordTitle = 'This controls whether the extension is capable of recording replays during a tagpro game.\n\n' +
+  let recordTitle = 'This controls whether the extension is capable of recording highlights during a tagpro game.\n\n' +
     'Uncheck to disable the extension.';
   $('#recordTxt').prop('title', recordTitle);
   $('#recordCheckbox').prop('title', recordTitle);
@@ -685,7 +687,7 @@ function setFormTitles() {
   $('#recordKeyCheckbox').prop('title', recordKeyTitle);
 
   let useSplatsTitle = 'This toggles whether to show splats or not.\n\nCheck the box if you' +
-    ' want to show splats in the replay';
+    ' want to show splats in the highlight';
   $('#useSplatsTxt').prop('title', useSplatsTitle);
   $('#useSplatsCheckbox').prop('title', useSplatsTitle);
     
@@ -730,8 +732,18 @@ listen('replay.save', function (info) {
     data: info.data,
     name: info.name
   }, (result) => {
+    if (chrome.runtime.lastError) {
+      emit('replay.saved', {
+        failed: true,
+        reason: chrome.runtime.lastError.message
+      });
+      return;
+    }
+    result = result || {failed: true, reason: 'No response from extension background script.'};
     emit('replay.saved', {
-      failed: result.failed
+      failed: Boolean(result.failed),
+      reason: result.reason,
+      fallbackDownloaded: Boolean(result.fallback_downloaded)
     });
   });
 });
@@ -765,7 +777,7 @@ chrome.storage.promise.local.get('options').then((items) => {
 function injectScript(path) {
   var script = document.createElement('script');
   script.setAttribute("type", "application/javascript");
-  script.src = chrome.extension.getURL(path);
+  script.src = chrome.runtime.getURL(path);
   script.onload = removeScript;
   (document.head || document.documentElement).appendChild(script);
 }
@@ -777,7 +789,7 @@ function removeScript() {
 function injectStyleSheet(path) {
   var link = document.createElement('link');
   link.setAttribute("rel", "stylesheet");
-  link.href = chrome.extension.getURL(path);
+  link.href = chrome.runtime.getURL(path);
   //script.onload = removeScript;
   (document.head || document.documentElement).appendChild(link);
 }

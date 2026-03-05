@@ -6,6 +6,7 @@ bower_components
 build
 dist
 karma-out.log
+.tmp-tests
 
 # Yet-merged items from dev branch
 .eslintrc.js
@@ -15,3 +16,6 @@ karma-out.log
 
 # Editor
 .vscode
+
+# System
+NUL

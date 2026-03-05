@@ -1,0 +1,68 @@
+{
+  "manifest_version": 3,
+  "name": "TagPro Highlights",
+  "version": "{{filled by build script}}",
+  "description": "Clip and save TagPro highlights from recent gameplay",
+  "minimum_chrome_version": "114",
+  "permissions": [
+    "downloads",
+    "offscreen",
+    "storage",
+    "unlimitedStorage"
+  ],
+  "host_permissions": [
+    "*://*.koalabeast.com/*",
+    "*://koalabeast.com/*",
+    "http://*.newcompte.fr/*",
+    "http://tangent.jukejuice.com/*"
+  ],
+  "background": {
+    "service_worker": "js/background-sw.js"
+  },
+  "content_scripts": [
+    {
+      "exclude_matches": [
+        "http://support.koalabeast.com/*",
+        "*://*.koalabeast.com/groups/*",
+        "*://koalabeast.com/groups/*"
+      ],
+      "js": [
+        "js/content.js"
+      ],
+      "css": [
+        "css/record.css",
+        "css/menu.css",
+        "css/viewer.css"
+      ],
+      "matches": [
+        "*://*.koalabeast.com/*",
+        "*://koalabeast.com/*",
+        "http://*.newcompte.fr/*",
+        "http://tangent.jukejuice.com/*"
+      ],
+      "run_at": "document_end"
+    }
+  ],
+  "icons": {
+    "128": "images/icon128.png"
+  },
+  "sandbox": {
+    "pages": [
+      "html/ajv-sandbox.html"
+    ]
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "js/recording.js",
+        "images/*.png",
+        "html/*.html",
+        "css/*.css",
+        "fonts/*"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    }
+  ]
+}

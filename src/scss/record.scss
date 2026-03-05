@@ -15,9 +15,12 @@
     top: 100px;
     position: absolute;
     color: #00CC00;
-    font-size: 20px;
+    font-size: 16px;
     font-weight: bold;
     display: none;
+    max-width: 220px;
+    text-align: right;
+    z-index: 10000;
 
     &.failed {
         color: #FF0000;

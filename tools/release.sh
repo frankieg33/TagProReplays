@@ -16,7 +16,7 @@ git checkout master
 sed --in-place \
     "s/\"version\": \".*\"/\"version\": \"$version\"/g" \
     package.json
-gulp build-release
+npm run build:release:mv3
 cd dist && zip -o dist.zip -r * && cd ..
 git add .
 git commit -m "Release $version."

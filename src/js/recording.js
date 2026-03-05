@@ -19,6 +19,7 @@ const logger = require('util/logger')('recording');
 const Cookies = require('util/cookies');
 
 let positions;
+let captureCurrentFrame;
 
 /**
  * Create an array of size N filled with zeros.
@@ -202,6 +203,9 @@ function recordReplayData() {
     positions.score.shift();
     positions.score.push(tagpro.score);
   }
+  // Save immediately once so very fast manual saves still include players.
+  captureCurrentFrame = saveGameData;
+  saveGameData();
 
   let updaters = [saveGameData];
   // Extension returns false if not applicable or frame update function.
@@ -245,6 +249,9 @@ function emit(event, data) {
 
 // send position data to content script
 function saveReplayData(positions) {
+  if (typeof captureCurrentFrame === 'function') {
+    captureCurrentFrame();
+  }
   let players = Object.keys(positions).filter(
     k => /player\d+/.test(k));
   let id = tagpro.playerId;
@@ -272,14 +279,25 @@ function listen(event, listener) {
 listen('replay.saved', function (result) {
   logger.info('Replay save confirmed.');
   if (result.failed) {
+    if (result.reason) {
+      logger.warn(`Replay save failed: ${result.reason}`);
+    }
     $('#savedFeedback').addClass('failed');
-    $('#savedFeedback').text('Failed!');
+    if (result.fallbackDownloaded) {
+      $('#savedFeedback').text('Saved as file');
+    } else if (result.reason) {
+      $('#savedFeedback').text('Save failed');
+    } else {
+      $('#savedFeedback').text('Failed!');
+    }
+    $('#savedFeedback').attr('title', result.reason || '');
   } else {
     $('#savedFeedback').removeClass('failed');
     $('#savedFeedback').text('Saved!');
+    $('#savedFeedback').attr('title', '');
   }
   $('#savedFeedback').fadeIn(300);
-  $('#savedFeedback').fadeOut(900);
+  $('#savedFeedback').fadeOut(1400);
 });
 
 // function to add button to record replay data AND if user has turned on key recording, add listener for that key.

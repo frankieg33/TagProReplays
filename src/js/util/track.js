@@ -53,27 +53,14 @@ function track(event_name, properties = {}) {
   });
 }
 
-if (isBackground()) {
-  // Developer property to segment out test/unpacked extension usage.
-  let mode = isDevMode() ? 'dev'
-                         : 'user';
+const devMode = isDevMode();
 
-  mixpanel.init('45697f2913c69b86acf923f43dd9d066');
-
-  // Chrome version.
-  mixpanel.register({
-    'Mode': mode,
-    'Chrome Version': getChromeVersion(),
-    'Version': getExtensionVersion()
-  });
-
-  module.exports = track;
-  // Set up listener for content script.
+function registerTrackListener(tracker) {
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     let method = message.method;
     if (method == 'track') {
       logger.debug('Received event from content script.');
-      track(message.event_name, message.properties).then(() => {
+      tracker(message.event_name, message.properties).then(() => {
         sendResponse({
           failed: false
         });
@@ -83,10 +70,34 @@ if (isBackground()) {
           reason: err.message
         });
       });
-
       return true;
     }
   });
+}
+
+if (isBackground()) {
+  if (devMode) {
+    let noop = () => Promise.resolve();
+    module.exports = noop;
+    registerTrackListener(noop);
+  } else {
+    // Developer property to segment out test/unpacked extension usage.
+    let mode = 'user';
+
+    mixpanel.init('45697f2913c69b86acf923f43dd9d066');
+
+    // Chrome version.
+    mixpanel.register({
+      'Mode': mode,
+      'Chrome Version': getChromeVersion(),
+      'Version': getExtensionVersion()
+    });
+
+    module.exports = track;
+    registerTrackListener(track);
+  }
+} else if (devMode) {
+  module.exports = () => Promise.resolve();
 } else {
   // Delegate to background page.
   module.exports = (event_name, properties = {}) => {
