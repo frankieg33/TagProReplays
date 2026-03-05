@@ -1,110 +1,83 @@
 # TagPro Highlights
 
-TagPro Highlights is a Chrome extension for recording short clips of gameplay in
-[TagPro](http://tagpro.gg/).
+TagPro Highlights is a Chrome extension for clipping recent TagPro gameplay and
+rendering highlight movies.
 
-The extension uses a replay buffer, remembering the last several seconds
-(default 30) so you can save sick plays after the fact.
+Version `2.0.0` is the Manifest V3 migration release.
 
-If screen capture software is a little heavy for your machine, this extension
-can help!
+## Features
 
-## Installation
+- Record and save highlights from a rolling in-memory buffer.
+- Browse, rename, delete, import, and export highlight data.
+- Render highlights to `.webm` movies in an offscreen render document.
+- Re-render previously rendered highlights after changing settings.
+- Use vanilla or custom textures in rendered output.
 
-TagPro Highlights is only available in Chromium-based browsers. You can get it from
-the [Chrome Web Store](https://chrome.google.com/webstore/detail/tagproreplays/ejbnakhldlocljfcglmeibhhdnmmcodh).
+## Compatibility
 
-For Opera users, first install [this extension](https://addons.opera.com/en/extensions/details/download-chrome-extension-9/?display=en)
-then download from the Chrome web store.
+- Chrome 114+.
+- Chromium-based browsers that support MV3 offscreen documents.
+
+## Quick Start (Unpacked Extension)
+
+1. Install Node.js and npm.
+2. Run `npm install`.
+3. Run `npm run build:mv3`.
+4. Open `chrome://extensions`.
+5. Enable Developer Mode.
+6. Click Load unpacked and select `build/`.
+
+After source changes, run `npm run build:mv3` again and click Reload on the
+extension in `chrome://extensions`.
+
+## Rendering Notes
+
+- Movie export format is currently `.webm`.
+- Higher FPS improves smoothness but increases output size.
+- A practical balance is often 60-75 FPS at 1280x720.
+- If you change render settings (tileset, splats, size, FPS), you can render
+  the same highlight again to overwrite the previous movie.
+
+## Troubleshooting
+
+- `Timed out waiting for offscreen render worker`:
+  Reload the extension, refresh TagPro, and retry the render.
+- `Extension context invalidated`:
+  Refresh the page after extension reload/update.
+- `The message port closed before a response was received`:
+  Ensure you are on the latest `2.0.0` build and reload both the extension and
+  active TagPro tab.
 
 ## Development
 
-### Building/Updating the Extension
+### Build
 
-This extension uses `esbuild` to turn CommonJS-style
-modules into code suitable for the browser. To go from source files to extension
-files:
+- `npm run build` builds browser bundles with sourcemaps.
+- `npm run build:mv3` builds MV3 output into `build/`.
+- `npm run build:release:mv3` builds a minified MV3 release into `dist/`.
 
-1. Download NodeJS and ensure npm is updated ([instructions](https://docs.npmjs.com/getting-started/installing-node))
-2. Execute `npm install` in the project directory
-3. Execute `npm run build:mv3` in the project directory
-5. Load the directory `$project_dir/build` as an unpacked extension.
-6. Develop!
+### Test
 
-If you make a change to the source files, just run `npm run build:mv3` again.
-
-### Notes
-
-References to assets using `chrome.extension.getURL` can assume the same
-relative location as in the `src` directory.
-
-Dependencies are resolved at compile-time by the bundler, but the assets
-that may be required for those libraries are moved from their respective
-folders and into the `build` directory. This applies to bootstrap, and
-the relevant CSS has been updated to properly refer to the images in the
-build directory.
-
-The manifest has some substitutions/insertions completed during the build
-process, like the `version` field being set with the version specified in
-`package.json`.
-
-### More Information
-
-**Customized Dependencies**
-
-One reason for having specific dependencies included in the extension is
-because they require changes before use. Those changes are documented here:
-
-* Bootstrap (3.2.0): CSS compiled so that any and all changes are scoped to
-  `.bootstrap-container`. The URLs for font assets are substituted to use
-  `chrome-extension://__MSG_@@extension_id__/`, which enables Chrome to resolve
-  the files even thought the CSS files are injected as content-scripts.
-
-**Extension File Organization**:
-
-* **src/**: Main source files for the extension.
-  - **html/**
-  - **images/**
-  - **js/**: Files directly under this directory are treated as individual
-    esbuild entry points.
-  - **js/modules/**: Imported by top-level scripts as needed.
-  - **js/util/**: Mostly self-contained, single-purpose modules.
-  - **schemas/**: JSON schemas for replay files.
-  - **scss/**: Compiled to CSS in the generated `build/css` directory.
-* **test/**: Automated tests and fixtures.
-* **vendor/**: Third-party libraries that either don't have a proper module,
-  or which required customization. Subdirectories other than `js` are copied
-  to the build directory.
-
-For CSS files injected as content scripts, ensure that referenced resources
-are prepended with `chrome-extension://__MSG_@@extension_id__/`, and listed
-under `web_accessible_resources` in the manifest.
-
-### Testing
-
-This extension uses Karma for testing.
-
-To run tests once, you can just execute `npm test` in the root project
-directory.
-
-To run tests continuously:
-
+- `npm test` builds test bundles and runs Karma once.
+Watch-like flow:
 1. `npm install -g karma-cli`
 2. `node tools/build-tests.js`
 3. `karma start`
 
-Re-run `node tools/build-tests.js` after source or test changes.
+### Project Structure
 
-For the list of manual tests, see [here](https://github.com/chrahunt/TagProReplays/wiki/Testing).
+- `src/`: extension source.
+- `src/js/`: entry scripts and module code.
+- `src/scss/`: styles compiled to CSS.
+- `src/html/`: extension UI/offscreen/sandbox pages.
+- `test/`: unit tests and fixtures.
+- `tools/`: build and release scripts.
+- `vendor/`: vendored frontend dependencies copied into builds.
 
-The MV3 build currently supports Chrome 114+.
+## Release
 
-### Release
-
-When you're ready to make a new release:
-
-1. Update the version in `package.json` (this value is written to `manifest.json` during build).
-2. Run `npm run build:release:mv3` to generate `./dist`.
-3. Load the `dist` directory as an unpacked extension and test.
-4. If tests pass, run `./tools/release.sh version`.
-5. Push to origin, create a GitHub release, post on /r/TagPro, and upload `./dist/dist.zip` to the Chrome developer dashboard.
+1. Bump version in `package.json`.
+2. Run `npm run build:release:mv3`.
+3. Load `dist/` as unpacked and smoke test.
+4. Commit and tag (for example `v2.0.0`).
+5. Push branch and tag, then publish a GitHub release.
