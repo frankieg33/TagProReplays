@@ -72,6 +72,9 @@ var frame;
 var context, options, replay_data, render_state;
 
 const TILE_SIZE = 40;
+const MAP_ELEMENT_KEYS = Object.keys(Tiles.mapElements)
+  .map(Number)
+  .filter(Number.isFinite);
 const FLOOR_TILE_KEYS = Object.keys(Tiles.floor_tiles)
   .map(Number)
   .filter(Number.isFinite);
@@ -123,6 +126,100 @@ function resolve_floor_tile_spec(tile_value) {
     return Tiles.floor_tiles[nearest];
   }
 
+  return null;
+}
+
+function resolve_map_element_spec(tile_value) {
+  let spec = Tiles.mapElements[tile_value];
+  if (spec) return spec;
+  let numeric = Number(tile_value);
+  if (!Number.isFinite(numeric)) return null;
+
+  let normalized_candidates = [
+    Number(numeric.toFixed(3)),
+    Number(numeric.toFixed(2)),
+    Number(numeric.toFixed(1)),
+    Math.floor(numeric),
+    Math.ceil(numeric)
+  ];
+  for (let candidate of normalized_candidates) {
+    spec = Tiles.mapElements[candidate];
+    if (spec) return spec;
+  }
+
+  let int_part = Math.floor(numeric);
+  let nearest = null;
+  let nearest_diff = Infinity;
+  for (let candidate of MAP_ELEMENT_KEYS) {
+    if (Math.floor(candidate) !== int_part) continue;
+    let diff = Math.abs(candidate - numeric);
+    if (diff < nearest_diff) {
+      nearest = candidate;
+      nearest_diff = diff;
+    }
+  }
+  if (nearest !== null && nearest_diff <= 0.02) {
+    return Tiles.mapElements[nearest];
+  }
+
+  return null;
+}
+
+function resolve_sprite_tile_spec(tile_value) {
+  let spec = Tiles.tiles[tile_value];
+  if (spec) return spec;
+
+  let numeric = Number(tile_value);
+  if (!Number.isFinite(numeric)) return null;
+
+  // Handle numeric/string format drift (e.g. 1.31 vs 1.310).
+  let normalized_candidates = [
+    Number(numeric.toFixed(3)),
+    Number(numeric.toFixed(2)),
+    Number(numeric.toFixed(1)),
+    numeric.toFixed(3),
+    numeric.toFixed(2),
+    numeric.toFixed(1),
+    Math.floor(numeric),
+    Math.ceil(numeric)
+  ];
+  for (let candidate of normalized_candidates) {
+    spec = Tiles.tiles[candidate];
+    if (spec) return spec;
+  }
+
+  return null;
+}
+
+function parse_game_end_time(value) {
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value) || value <= 0) return null;
+    return value;
+  }
+  if (typeof value === 'string') {
+    if (!value || value === '0') return null;
+    let numeric = Number(value);
+    if (Number.isFinite(numeric) && numeric > 0) return numeric;
+    let parsed = Date.parse(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  if (value && typeof value === 'object') {
+    if (typeof value.startTime !== 'undefined' && typeof value.time !== 'undefined') {
+      let start = Date.parse(value.startTime);
+      let delta = Number(value.time);
+      if (Number.isFinite(start) && Number.isFinite(delta)) {
+        return start + delta;
+      }
+    }
+    if (typeof value.time !== 'undefined') {
+      let numeric = Number(value.time);
+      if (Number.isFinite(numeric) && numeric > 0) return numeric;
+    }
+    if (typeof value.startTime !== 'undefined') {
+      let parsed = Date.parse(value.startTime);
+      if (Number.isFinite(parsed)) return parsed;
+    }
+  }
   return null;
 }
 
@@ -275,11 +372,21 @@ class Renderer {
    * @private
    */
   _extract_replay_data() {
-    let players = Object.keys(this.replay).filter(
-      k => k.startsWith('player'));
-    let id = players.find(k => this.replay[k].me == 'me');
+    let players = Object.keys(this.replay)
+      .filter(k => k.startsWith('player'))
+      .filter((k) => this.replay[k] && typeof this.replay[k] === 'object');
+    let id = players.find((k) => this.replay[k].me == 'me') || players[0];
+    if (!id) {
+      let err = new Error('Replay does not contain any player records.');
+      err.name = 'InvalidReplay';
+      throw err;
+    }
+    let fps = Number(this.replay[id].fps);
+    if (!Number.isFinite(fps) || fps <= 0) {
+      fps = 60;
+    }
     replay_data = {
-      fps: this.replay[id].fps,
+      fps: fps,
       me: id,
       players: players
     };
@@ -327,25 +434,28 @@ class Renderer {
     let decipheredData = decipherMapdata(this.replay.map);
     this.replay.tiles = translateWallTiles(decipheredData, this.replay.wallMap);
 
-    // Normalize gameEndsAt to handle:
-    // - old version of recording script that only retrieved initial value
-    // - replay recording starting too early and picking up an initial 
-    //   zero value.
-    if (!Array.isArray(this.replay.gameEndsAt)) {
-      this.replay.gameEndsAt = [Date.parse(this.replay.gameEndsAt)];
-    } else if (this.replay.gameEndsAt[0] === 0) {
-      // Remove bad value.
-      this.replay.gameEndsAt.shift();
-      // Reformat actual starting value.
-      let start = this.replay.gameEndsAt[0];
-      this.replay.gameEndsAt[0] = Date.parse(start.startTime) + start.time;
+    // Normalize gameEndsAt into sorted epoch-millisecond values.
+    let raw_game_ends = Array.isArray(this.replay.gameEndsAt)
+      ? this.replay.gameEndsAt
+      : [this.replay.gameEndsAt];
+    let normalized_game_ends = raw_game_ends
+      .map(parse_game_end_time)
+      .filter(Number.isFinite)
+      .sort((a, b) => a - b);
+    if (!normalized_game_ends.length) {
+      let fallback = clock[clock.length - 1];
+      if (Number.isFinite(fallback)) {
+        normalized_game_ends.push(fallback);
+      }
     }
+    this.replay.gameEndsAt = normalized_game_ends;
 
     // Ensure the value of each flair coordinate is a number.
     replay_data.players
-    .map(id => this.replay[id].flair)
-    .forEach((flair) => {
-      flair.forEach((v) => {
+    .map(id => this.replay[id])
+    .forEach((player) => {
+      if (!player || !Array.isArray(player.flair)) return;
+      player.flair.forEach((v) => {
         if (!v) return;
         Object.assign(v, { x: Number(v.x), y: Number(v.y) });
       });
@@ -360,8 +470,8 @@ class Renderer {
 function decipherMapdata(mapData) {
   return mapData.map((col) => {
     return col.map((tile) => {
-      let tileDescriptor = Tiles.mapElements[tile];
-      if (tileDescriptor === undefined) {
+      let tileDescriptor = resolve_map_element_spec(tile);
+      if (!tileDescriptor) {
         // Default to a blank tile.
         tileDescriptor = Tiles.mapElements[0];
         logger.error(`Could not find tile for value: ${tile}`);
@@ -389,8 +499,12 @@ function translateWallTiles(decipheredData, wallData) {
 
         for (let i = 0; i < 4; i++) {
           let id = wallCoords[i];
-          let tile = Tiles.tiles[id];
-          coordinates[i] = [tile.x, tile.y];
+          let sprite = resolve_sprite_tile_spec(id);
+          if (!sprite) {
+            logger.error(`Could not find wall tile sprite for value: ${id}`);
+            sprite = Tiles.tiles[0];
+          }
+          coordinates[i] = [sprite.x, sprite.y];
         }
         data.coordinates = coordinates;
       }
@@ -563,26 +677,22 @@ function drawPowerups(ball, ballx, bally, positions) {
 function drawClock(positions) {
   // YYYY-MM-DDTHH:mm:ss.SSSZ
   let current_time = moment(positions.clock[frame], 'YYYY-MM-DDTHH:mm:ss.SSSZ');
+  let current_ms = Date.parse(positions.clock[frame]);
   let game_end = positions.end && moment(positions.end.time, 'YYYY-MM-DDTHH:mm:ss.SSSZ');
   // End of current game state interval.
-  let end_time, start_time;
-  let default_duration = 720000;
-  if (positions.gameEndsAt.length == 1) {
-    end_time = moment(positions.gameEndsAt[0], 'x');
-  } else if (positions.gameEndsAt.length == 2) {
-    end_time = moment(positions.gameEndsAt[1].startTime, 'YYYY-MM-DDTHH:mm:ss.SSSZ');
-    if (current_time.isAfter(end_time)) {
-      start_time = moment(end_time);
-      end_time.add(positions.gameEndsAt[1].time, 'ms');
-    } 
+  let end_ms = null;
+  for (let candidate of positions.gameEndsAt || []) {
+    let parsed = parse_game_end_time(candidate);
+    if (!Number.isFinite(parsed)) continue;
+    end_ms = parsed;
+    if (Number.isFinite(current_ms) && parsed >= current_ms) {
+      break;
+    }
   }
+  let end_time = Number.isFinite(end_ms) ? moment(end_ms, 'x') : null;
   if (!end_time) {
     logger.warn('Error parsing game time.');
     return;
-  }
-  // Default start time.
-  if (!start_time) {
-    start_time = moment(end_time).subtract(default_duration, 'ms');
   }
   let clock_text;
   if (game_end && current_time.isAfter(game_end)) {
@@ -1184,9 +1294,12 @@ function drawBalls(positions) {
       drawFlag(id, x, y, positions);
       let name = Array.isArray(player.name) ? player.name[frame]
                                             : player.name;
-      drawName(name, player.auth[frame], x, y);
-      drawDegree(player.degree[frame], x, y);
-      drawFlair(player.flair[frame], x, y);
+      let auth = Array.isArray(player.auth) ? player.auth[frame] : player.auth;
+      let degree = Array.isArray(player.degree) ? player.degree[frame] : player.degree;
+      let flair = Array.isArray(player.flair) ? player.flair[frame] : null;
+      drawName(name, auth, x, y);
+      drawDegree(degree, x, y);
+      drawFlair(flair, x, y);
     }
     ballPop(positions, id);
     rollingBombPop(positions, id);
