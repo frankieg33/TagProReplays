@@ -14,6 +14,7 @@ class ReplayCollection extends EventEmitter {
     super();
     this._collection = [];
     this._collection_by_id = new Map();
+    this._total = 0;
     this.query = '';
     // Set update handlers.
     chrome.runtime.onMessage.addListener((message) => {
@@ -21,12 +22,16 @@ class ReplayCollection extends EventEmitter {
       if (method == 'replay.added') {
         let {replay} = message;
         replay = new Replay(replay.id, replay);
-        this._collection.push(replay);
-        this._collection_by_id.set(replay.id, replay);
+        this._total += 1;
+        if (!this._collection_by_id.has(replay.id)) {
+          this._collection.push(replay);
+          this._collection_by_id.set(replay.id, replay);
+        }
         this.emit('added', replay);
 
       } else if (method == 'replay.deleted') {
         let {ids} = message;
+        this._total = Math.max(0, this._total - ids.length);
         for (let id of ids) {
           this._collection_by_id.delete(id);
         }
@@ -41,7 +46,9 @@ class ReplayCollection extends EventEmitter {
         let index = this._collection.findIndex(
           replay => replay.id == id);
         let new_replay = new Replay(replay.id, replay);
-        this._collection[index] = new_replay;
+        if (index !== -1) {
+          this._collection[index] = new_replay;
+        }
         this._collection_by_id.set(new_replay.id, new_replay);
         if (id !== new_replay.id) {
           this._collection_by_id.delete(id);
@@ -53,25 +60,45 @@ class ReplayCollection extends EventEmitter {
 
   /**
    * Syncs collection with database.
-   * @returns {Promise<Array<Replay>>}
+   * @returns {Promise<{collection: ReplayCollection, replays: Array<Replay>, total: number, has_more: boolean}>}
    */
-  fetch() {
+  fetch({offset = 0, limit = 250, append = false} = {}) {
+    offset = Math.max(0, Number(offset) || 0);
+    limit = Math.max(1, Math.min(500, Number(limit) || 250));
     return new Promise((resolve, reject) => {
       chrome.runtime.sendMessage({
         method: 'replay.list',
-        query:  this.query
+        query: this.query,
+        offset: offset,
+        limit: limit
       }, (result) => {
         if (chrome.runtime.lastError) {
           reject(chrome.runtime.lastError);
         } else if (result.error) {
           reject(new Error(result.reason || result.message || 'Unknown replay list error'));
         } else {
-          this._collection = result.replays.map(
+          let page_replays = (result.replays || []).map(
             info => new Replay(info.id, info));
-          for (let replay of this._collection) {
+
+          if (!append) {
+            this._collection = [];
+            this._collection_by_id.clear();
+          }
+          for (let replay of page_replays) {
+            if (this._collection_by_id.has(replay.id)) continue;
+            this._collection.push(replay);
             this._collection_by_id.set(replay.id, replay);
           }
-          resolve(this);
+
+          this._total = Number.isFinite(result.total)
+            ? result.total
+            : this._collection.length;
+          resolve({
+            collection: this,
+            replays: page_replays,
+            total: this._total,
+            has_more: Boolean(result.has_more)
+          });
         }
       });
     });
@@ -115,7 +142,7 @@ class ReplayCollection extends EventEmitter {
    * @returns {Number} count of the total replays.
    */
   total() {
-    return this._collection.length;
+    return this._total;
   }
 
   /**

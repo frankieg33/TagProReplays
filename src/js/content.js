@@ -147,15 +147,28 @@ function initSettings() {
     name: 'hotkey',
     id: 'recordKeyChooserInput',
     get: $elt => {
-      if ($elt.text() == 'None') return null;
-      return $elt.text().charCodeAt(0);
+      if (!$elt.data('record')) return null;
+      let keyCode = Number($elt.data('hotkeyCode'));
+      if (!Number.isFinite(keyCode) || keyCode <= 0) return null;
+      return keyCode;
     },
     set: ($elt, val) => {
+      let keyCode = Number(val);
       if ($elt.data('record')) {
-        $elt.text(String.fromCharCode(val));
+        if (Number.isFinite(keyCode) && keyCode > 0) {
+          $elt.data('hotkeyCode', keyCode);
+          if (keyCode >= 32 && keyCode <= 126) {
+            $elt.text(String.fromCharCode(keyCode));
+          } else {
+            $elt.text(`Key ${keyCode}`);
+          }
+        } else {
+          $elt.text('None');
+        }
         $('#record-key-remove').show();
       } else {
-        $elt.val('None');
+        $elt.data('hotkeyCode', null);
+        $elt.text('None');
         $('#record-key-remove').hide();
       }
     }
@@ -265,25 +278,34 @@ function initSettings() {
 
   // Record key input.
   function keyListener(e) {
-    $('#recordKeyChooserInput').text(String.fromCharCode(e.which))
+    let keyCode = Number(e.which || e.keyCode);
+    if (!Number.isFinite(keyCode) || keyCode <= 0) return;
+    if (keyCode >= 32 && keyCode <= 126) {
+      $('#recordKeyChooserInput').text(String.fromCharCode(keyCode));
+    } else {
+      $('#recordKeyChooserInput').text(`Key ${keyCode}`);
+    }
     $('#recordKeyChooserInput').data('record', true);
+    $('#recordKeyChooserInput').data('hotkeyCode', keyCode);
     $('#record-key-remove').show();
+    e.preventDefault();
     stopInputting();
   }
 
   function stopInputting() {
     $('#record-key-input-container').removeClass('focused');
-    $(document).off("keypress", keyListener);
+    $(document).off('keydown', keyListener);
   }
 
   $('#record-key-input-container').click(function () {
     $(this).addClass('focused');
-    $(document).on("keypress", keyListener);
+    $(document).on('keydown', keyListener);
   });
 
   $('#record-key-remove').click(function (e) {
     e.stopPropagation();
     $('#recordKeyChooserInput').data('record', false);
+    $('#recordKeyChooserInput').data('hotkeyCode', null);
     $('#recordKeyChooserInput').text('None');
     $('#record-key-remove').hide();
     return false;

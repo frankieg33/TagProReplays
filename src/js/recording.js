@@ -318,22 +318,40 @@ function recordButton() {
   $(savedFeedback).hide();
 
   if (Cookies.read('tpr_hotkey_enabled') == "true") {
-    let last_key = null;
     let pressing = false;
-    $(document).on('keypress', (e) => {
-      let record_key = Cookies.read('tpr_hotkey');
-      if (e.which == record_key && !(last_key == e.key && pressing)) {
+    function get_record_key() {
+      let record_key = Number(Cookies.read('tpr_hotkey'));
+      if (!Number.isFinite(record_key) || record_key <= 0) return null;
+      return record_key;
+    }
+
+    function is_text_input(target) {
+      if (!target || !target.tagName) return false;
+      if (target.isContentEditable) return true;
+      let tag = target.tagName.toUpperCase();
+      return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+    }
+
+    $(document).on('keydown', (e) => {
+      if (is_text_input(e.target)) return;
+      let record_key = get_record_key();
+      if (record_key === null) return;
+      if (e.which == record_key && !pressing) {
         logger.info('Record hotkey pressed.');
         pressing = true;
-        last_key = e.key;
         saveReplayData(positions);
       }
     });
 
     $(document).on('keyup', (e) => {
-      if (e.key == last_key) {
+      let record_key = get_record_key();
+      if (record_key === null || e.which == record_key) {
         pressing = false;
       }
+    });
+
+    $(window).on('blur', () => {
+      pressing = false;
     });
   }
 }

@@ -1123,10 +1123,19 @@ async function handle_message(message, sender) {
   if (method === 'replay.list') {
     try {
       let query = message.query || '';
+      let offset = Math.max(0, Number(message.offset) || 0);
+      let limit = Math.max(1, Math.min(500, Number(message.limit) || 250));
       let info = await get_all_replays_info();
       info = await filter(info, query);
+      info.sort((a, b) => b.recorded - a.recorded);
+      let total = info.length;
+      let page = info.slice(offset, offset + limit);
       return {
-        replays: info
+        replays: page,
+        total: total,
+        offset: offset,
+        limit: limit,
+        has_more: (offset + page.length) < total
       };
     } catch (err) {
       return {

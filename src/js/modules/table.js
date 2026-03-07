@@ -31,6 +31,10 @@ class Table {
     this.num_ids = 0;
     // track whether user is currently searching.
     this.inSearch = false;
+    this.page_size = 250;
+    this.loading_page = false;
+    this.has_more = false;
+    this.next_offset = 0;
   }
 
   /**
@@ -137,6 +141,15 @@ class Table {
     
     $(window).resize(setReplayListHeight);
     setReplayListHeight();
+
+    this.$list.on('scroll', () => {
+      if (!this.has_more || this.loading_page) return;
+      let el = this.$list[0];
+      if (!el) return;
+      if (el.scrollTop + el.clientHeight >= el.scrollHeight - 120) {
+        this._load_page(false);
+      }
+    });
   }
 
   /**
@@ -145,16 +158,12 @@ class Table {
    */
   update() {
     $('.replayRow').not('.clone').remove();
-    this.collection.fetch().then((data) => {
-      logger.info(`Received ${data.length} highlights.`);
-      data.each((replay) => {
-        this._add_replay(replay);
-      });
-      this._update_ui();
-      this._do_sort();
-    }).catch((err) => {
-      logger.error('Error retrieving replays: ', err);
-    });
+    this.ids = {};
+    this.num_ids = 0;
+    this.next_offset = 0;
+    this.has_more = false;
+    this.loading_page = false;
+    this._load_page(true);
   }
 
   /**
@@ -329,7 +338,13 @@ class Table {
   }
 
   _update_ui() {
-    $('.replay-count').text(`Total highlights: ${this.collection.total()}`);
+    let total = this.collection.total();
+    let loaded = this.collection.length;
+    if (loaded < total) {
+      $('.replay-count').text(`Loaded ${loaded} of ${total} highlights`);
+    } else {
+      $('.replay-count').text(`Total highlights: ${total}`);
+    }
     let force_render_disabled = $('#renderSelectedButton').data('force-disabled') === true;
     if (this.empty()) {
       // Show "No replays" message.
@@ -351,6 +366,41 @@ class Table {
       $('#deleteSelectedButton').prop('disabled', false);
       $('#downloadRawButton').prop('disabled', false);
       $('#selectAllCheckbox').prop('disabled', false);
+    }
+  }
+
+  _load_page(reset) {
+    if (this.loading_page) return;
+    if (!reset && !this.has_more) return;
+    this.loading_page = true;
+    let offset = reset ? 0 : this.next_offset;
+    this.collection.fetch({
+      offset: offset,
+      limit: this.page_size,
+      append: !reset
+    }).then((result) => {
+      logger.info(`Received ${result.replays.length} highlights (offset ${offset}, total ${result.total}).`);
+      for (let replay of result.replays) {
+        this._add_replay(replay);
+      }
+      this.next_offset = offset + result.replays.length;
+      this.has_more = result.has_more;
+      this._update_ui();
+      this._do_sort();
+    }).catch((err) => {
+      logger.error('Error retrieving replays: ', err);
+    }).then(() => {
+      this.loading_page = false;
+      this._maybe_prefetch_more();
+    });
+  }
+
+  _maybe_prefetch_more() {
+    if (!this.has_more || this.loading_page) return;
+    let el = this.$list && this.$list[0];
+    if (!el) return;
+    if (el.scrollHeight <= el.clientHeight + 20) {
+      this._load_page(false);
     }
   }
 
