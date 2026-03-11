@@ -498,6 +498,34 @@ async function download_replays(ids, sendProgress) {
   send_end_zip_update();
 }
 
+async function download_rendered_movies(sendProgress, ids) {
+  let replayInfo = await get_all_replays_info();
+  let rendered = replayInfo.filter((info) => info.rendered);
+  if (ids) {
+    let idSet = new Set(ids);
+    rendered = rendered.filter((info) => idSet.has(info.id));
+  }
+  if (!rendered.length) {
+    let err = new Error('No rendered movies are available to download.');
+    err.name = 'NoRenderedMovies';
+    throw err;
+  }
+
+  for (let i = 0; i < rendered.length; i++) {
+    let info = rendered[i];
+    let filename = sanitize_download_filename(`${info.name}.webm`, `${info.id}.webm`);
+    await download_movie_via_offscreen(info.id, filename);
+    if (sendProgress) {
+      sendProgress({
+        completed: i + 1,
+        total: rendered.length,
+        id: info.id,
+        name: info.name
+      });
+    }
+  }
+}
+
 function serialize_error(error) {
   return {
     message: error && error.message ? error.message : String(error),
@@ -1318,6 +1346,50 @@ chrome.runtime.onConnect.addListener((port) => {
         port.postMessage({ progress: update });
       }).catch((err) => {
         logger.error('Error downloading replays: ', err);
+        port.postMessage({
+          error: {
+            name: err.name,
+            message: err.message
+          }
+        });
+      }).then(() => {
+        port.disconnect();
+      });
+    });
+    return;
+  }
+
+  if (name === 'movie.download.all') {
+    let active = false;
+    port.onMessage.addListener(() => {
+      if (active) return;
+      active = true;
+      download_rendered_movies((update) => {
+        port.postMessage({ progress: update });
+      }).catch((err) => {
+        logger.error('Error downloading rendered movies: ', err);
+        port.postMessage({
+          error: {
+            name: err.name,
+            message: err.message
+          }
+        });
+      }).then(() => {
+        port.disconnect();
+      });
+    });
+    return;
+  }
+
+  if (name === 'movie.download.selected') {
+    let active = false;
+    port.onMessage.addListener((msg) => {
+      if (active) return;
+      active = true;
+      download_rendered_movies((update) => {
+        port.postMessage({ progress: update });
+      }, msg.ids).catch((err) => {
+        logger.error('Error downloading selected movies: ', err);
         port.postMessage({
           error: {
             name: err.name,

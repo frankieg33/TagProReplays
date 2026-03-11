@@ -477,67 +477,36 @@ function initMenu() {
     }
   });
 
-  /**
-   * Callback for replay download button.
-   * 
-   * Raw data is zipped on the background page,
-   * this just sends the request and then manages
-   * the progress modal.
-   */
-  replay_table.add_collection_action('#downloadRawButton', (replays) => {
-    logger.info(`Requesting download for: ${replays.ids}`);
-    if (replays.length === 1) {
-      replays.get(0).download().catch((err) => {
-        alert(`Error downloading highlight: ${err.message}`);
-      });
+  replay_table.add_collection_action('#downloadRenderedMoviesButton', (selection) => {
+    let rendered = selection.filter(r => r.rendered);
+    if (!rendered.length) {
+      alert('None of the selected highlights have been rendered.');
       return;
     }
-    // Initialize activity dialog.
     activity_dialog.set({
       dismissable: false,
       progress: true
     });
-    activity_dialog.header('Highlight Export');
-    activity_dialog.text('Preparing download');
+    activity_dialog.header('Movie Export');
+    activity_dialog.text('Preparing rendered movie downloads');
     activity_dialog.progress(0);
     activity_dialog.show();
-    // Zipping messages override 
-    let zipping = 0;
-    // Update activity dialog progress.
-    function update_dialog(activity) {
-      let {action, value} = activity;
-      if (action == 'progress') {
-        activity_dialog.progress(value);
-        if (!zipping) {
-          activity_dialog.text('Adding files to zip.');
-        }
-      } else if (action == 'state') {
-        // Zip updates.
-        // Stop zipping.
-        if (value.startsWith('!')) {
-          zipping--;
-          if (!zipping) {
-            activity_dialog.text('Downloading zip...');
-          }
-        } else {
-          zipping++;
-          if (value == 'zip:intermediate') {
-            activity_dialog.text('Generating intermediate zip file.');
-          } else if (value == 'zip:final') {
-            activity_dialog.text('Generating final zip.');
-          }
-        }
+
+    Replays.download_selected_movies(rendered.ids).progress((update) => {
+      let completed = Number(update.completed) || 0;
+      let total = Number(update.total) || 0;
+      let label = update.name ? `: ${update.name}` : '';
+      if (total > 0) {
+        activity_dialog.progress(completed / total);
+        activity_dialog.text(`Downloading rendered movies (${completed}/${total})${label}`);
       }
-    }
-    replays.download().progress((progress) => {
-      update_dialog(progress);
     }).then(() => {
-      activity_dialog.text('Highlights exported.');
+      activity_dialog.progress(1);
+      activity_dialog.text('Rendered movie downloads started.');
     }).catch((err) => {
-      let errName = err && err.name ? err.name : 'Error';
       let errMessage = err && err.message ? err.message : 'Unknown failure';
-      activity_dialog.text(`Highlight export failed (${errName}): ${errMessage}`);
-      logger.error('Highlight export failed: ', err);
+      activity_dialog.text(`Movie export failed: ${errMessage}`);
+      logger.error('Rendered movie export failed: ', err);
     }).then(() => {
       activity_dialog.update({
         dismissable: true

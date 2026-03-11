@@ -352,7 +352,7 @@ class Table {
       $('#replayList').hide()
       $('#renderSelectedButton').prop('disabled', true);
       $('#deleteSelectedButton').prop('disabled', true);
-      $('#downloadRawButton').prop('disabled', true);
+      $('#downloadRenderedMoviesButton').prop('disabled', true);
       $('#selectAllCheckbox').prop('disabled', true);
       $('#selectAllCheckbox').prop('checked', false);
     } else {
@@ -364,7 +364,7 @@ class Table {
       // Enable buttons for interacting with multiple selections.
       $('#renderSelectedButton').prop('disabled', force_render_disabled);
       $('#deleteSelectedButton').prop('disabled', false);
-      $('#downloadRawButton').prop('disabled', false);
+      $('#downloadRenderedMoviesButton').prop('disabled', false);
       $('#selectAllCheckbox').prop('disabled', false);
     }
   }

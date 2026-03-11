@@ -199,6 +199,85 @@ class ReplayCollection extends EventEmitter {
       });
     });
   }
+
+  /**
+   * Download rendered movies for the given ids.
+   * @param {Array<string>} ids
+   * @returns {Progress}
+   */
+  download_selected_movies(ids) {
+    return new Progress((resolve, reject, progress) => {
+      let port = chrome.runtime.connect({ name: 'movie.download.selected' });
+      let sawError = false;
+      let gotProgress = false;
+      port.postMessage({ ids });
+      port.onMessage.addListener((msg) => {
+        if (msg.error) {
+          sawError = true;
+          reject(deserialize_error(msg.error));
+        } else if (msg.progress) {
+          gotProgress = true;
+          progress(msg.progress);
+        }
+      });
+
+      port.onDisconnect.addListener(() => {
+        if (sawError) return;
+        if (chrome.runtime.lastError) {
+          let err = new Error(`Movie export connection failed: ${chrome.runtime.lastError.message}`);
+          err.name = 'PortDisconnectError';
+          reject(err);
+          return;
+        }
+        if (!gotProgress) {
+          let err = new Error('Movie export disconnected before any progress was reported.');
+          err.name = 'PortDisconnectError';
+          reject(err);
+          return;
+        }
+        resolve();
+      });
+    });
+  }
+
+  /**
+   * Download every rendered movie.
+   * @returns {Progress}
+   */
+  download_rendered_movies() {
+    return new Progress((resolve, reject, progress) => {
+      let port = chrome.runtime.connect({ name: 'movie.download.all' });
+      let sawError = false;
+      let gotProgress = false;
+      port.postMessage({});
+      port.onMessage.addListener((msg) => {
+        if (msg.error) {
+          sawError = true;
+          reject(deserialize_error(msg.error));
+        } else if (msg.progress) {
+          gotProgress = true;
+          progress(msg.progress);
+        }
+      });
+
+      port.onDisconnect.addListener(() => {
+        if (sawError) return;
+        if (chrome.runtime.lastError) {
+          let err = new Error(`Movie export connection failed: ${chrome.runtime.lastError.message}`);
+          err.name = 'PortDisconnectError';
+          reject(err);
+          return;
+        }
+        if (!gotProgress) {
+          let err = new Error('Movie export disconnected before any progress was reported.');
+          err.name = 'PortDisconnectError';
+          reject(err);
+          return;
+        }
+        resolve();
+      });
+    });
+  }
 }
 module.exports = new ReplayCollection();
 
