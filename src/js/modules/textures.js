@@ -31,19 +31,15 @@ const texture_names = [
  */
 exports.set = function (new_textures) {
   return chrome.storage.promise.local.get("textures").then((items) => {
-    var textures = items.textures;
-    if (textures) {
-      Object.assign(textures, new_textures);
-      return chrome.storage.promise.local.set({
-        textures: textures
-      }).then(() => {
-        logger.info('Textures updated');
-      }).catch((err) => {
-        logger.error('Error setting textures: ', err);
-      });
-    } else {
-      throw new Error("Textures not set.");
-    }
+    var textures = items.textures || {};
+    Object.assign(textures, new_textures);
+    return chrome.storage.promise.local.set({
+      textures: textures
+    }).then(() => {
+      logger.info('Textures updated');
+    }).catch((err) => {
+      logger.error('Error setting textures: ', err);
+    });
   });
 }
 

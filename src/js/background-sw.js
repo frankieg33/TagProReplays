@@ -774,6 +774,7 @@ function render_replay_via_offscreen(id, update) {
   });
 }
 
+
 async function get_render_config() {
   let {options, textures} = await chrome.storage.promise.local.get(['options', 'textures']);
   let merged_options = Object.assign({}, getDefaultOptions(), options || {});
@@ -784,6 +785,7 @@ async function get_render_config() {
         customTextureUrls[name] = textures[name];
       }
     }
+
   }
   return {
     options: merged_options,
@@ -988,6 +990,7 @@ async function handle_message(message, sender) {
       failed: false
     };
   }
+
 
   if (method === 'replay.get') {
     let {id} = message;

@@ -389,6 +389,24 @@ class Table {
       this._do_sort();
     }).catch((err) => {
       logger.error('Error retrieving replays: ', err);
+      if (err && err.message && err.message.includes('Extension context invalidated')) {
+        $('#replaysLoading').hide();
+        $('#noReplays').hide();
+        $('#replayList').hide();
+        $('#tpr-no-search-results').hide();
+        let $msg = $('#tpr-context-invalidated');
+        if (!$msg.length) {
+          $msg = $('<div id="tpr-context-invalidated" class="text-center">' +
+            '<p>The extension was reloaded. <a href="#" id="tpr-reload-page">Reload the page</a> to continue.</p>' +
+            '</div>');
+          $('#replays').append($msg);
+          $msg.find('#tpr-reload-page').click(function(e) {
+            e.preventDefault();
+            window.location.reload();
+          });
+        }
+        $msg.show();
+      }
     }).then(() => {
       this.loading_page = false;
       this._maybe_prefetch_more();

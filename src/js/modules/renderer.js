@@ -1386,6 +1386,7 @@ function animateReplay(frame_n, positions, mapImg, spin, showSplats, showClockAn
     mapImg.width, mapImg.height,
     Math.round(origin.x), Math.round(origin.y),
     mapImg.width, mapImg.height);
+
   if (showSplats) {
     drawSplats(positions);
   }

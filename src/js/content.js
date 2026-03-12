@@ -117,6 +117,24 @@ function injectMenu() {
   });
 }
 
+function closeModal($modal) {
+  $modal.one('hidden.bs.modal', function () {
+    let openModals = $('.modal.in');
+    if (openModals.length) {
+      // Bootstrap removed its backdrop when hiding the nested modal.
+      // Restore one for the still-open parent modal.
+      $('body').addClass('modal-open');
+      if (!$('.modal-backdrop').length) {
+        $('<div class="modal-backdrop in">').appendTo('body');
+      }
+    } else {
+      $('body').removeClass('modal-open');
+      $('.modal-backdrop').remove();
+    }
+  });
+  $modal.modal('hide');
+}
+
 // Initialize settings and texture picker.
 function initSettings() {
   // Settings container.
@@ -251,6 +269,7 @@ function initSettings() {
 
   $('#saveSettingsButton').click(saveSettings);
 
+
   // Set value of settings when dialog opened, using default values if
   // none have yet been set.
   function setSettings() {
@@ -341,7 +360,7 @@ function initSettings() {
     })).then(() => {
       return Textures.set(textures);
     }).then(() => {
-      $('#textureContainer').modal('hide');
+      closeModal($('#textureContainer'));
     }).catch((err) => {
       logger.error('Error saving textures: ', err);
     });

@@ -153,6 +153,7 @@ async function load_textures(renderConfig) {
   for (let i = 0; i < TEXTURE_NAMES.length; i++) {
     textures[TEXTURE_NAMES[i]] = images[i];
   }
+
   return textures;
 }
 
