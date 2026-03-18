@@ -19,3 +19,7 @@ karma-out.log
 
 # System
 NUL
+
+Eggball Field.png
+*.zip
+.claude/
